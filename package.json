@@ -1,0 +1,59 @@
+{
+  "name": "omo-mnemon",
+  "version": "0.1.0",
+  "description": "Mnemon long-term memory for omo and other senpi/pi coding agents: recall, remember and link tools plus quiet high-confidence auto-recall.",
+  "type": "module",
+  "license": "CC0-1.0",
+  "author": "Audrey Tang <au@civic.ai>",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "omo",
+    "senpi",
+    "mnemon",
+    "memory",
+    "agent-memory"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "bun test",
+    "check": "bun run typecheck && bun run lint && bun run test"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "typebox": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.2.4",
+    "@earendil-works/pi-ai": "npm:@code-yeongyu/senpi-ai@2026.9.26",
+    "@earendil-works/pi-coding-agent": "npm:@code-yeongyu/senpi@2026.9.26",
+    "@mnemon-dev/mnemon": "0.2.9",
+    "@types/bun": "latest",
+    "@types/node": "^24.0.0",
+    "typebox": "1.3.34",
+    "typescript": "^5.9.2"
+  }
+}
