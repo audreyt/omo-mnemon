@@ -14,11 +14,11 @@ const CANDIDATES = 10;
 const INJECTED_ROWS = 3;
 const MIN_SCORE = 0.6;
 const TIMEOUT_MS = 5_000;
-// A cold store first loads its embedding model and pages in every stored vector: about 3s on a
-// 6k-memory store, too close to TIMEOUT_MS. The session's first recall, and the first after Ollama's
-// default five-minute keep_alive lapses, therefore gets a cold budget instead.
-const COLD_TIMEOUT_MS = 10_000;
-const IDLE_MS = 5 * 60_000;
+// A cold recall reloads the embedding model and pages in the store: about 4s on a 6k-memory store,
+// too close to TIMEOUT_MS. The session's first recall, and the first after mnemon's 30-minute
+// Ollama keep_alive lapses, therefore gets a cold budget instead.
+const COLD_TIMEOUT_MS = 6_000;
+const IDLE_MS = 30 * 60_000;
 
 const EXTRA_SENTENCES = 2;
 
