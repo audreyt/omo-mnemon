@@ -25,7 +25,7 @@ omo-mnemon/
 | Task | Location | Notes |
 |------|----------|-------|
 | Add/change a tool | `src/tools.ts` | TypeBox schemas; `promptGuidelines` live only on `mnemon_recall` |
-| Auto-recall thresholds | `src/auto-recall.ts` constants | QUERY_CHARS 300, CANDIDATES 10, INJECTED_ROWS 3, MIN_SCORE 0.6, 3s warm / 10s cold |
+| Auto-recall thresholds | `src/auto-recall.ts` constants | QUERY_CHARS 300, CANDIDATES 10, INJECTED_ROWS 3, MIN_SCORE 0.6, 5s warm / 10s cold |
 | Which rows get injected | `recall.ts` `selectSilentRows` | confidence `high` only; score>=minScore only when confidence absent |
 | Skip rules for prompts | `text.ts` `isSubstantivePrompt`, `ACKNOWLEDGEMENTS` | >=12 non-space chars or >=4 Han chars |
 | Secret refusal | `text.ts` `SECRET_PATTERNS` | checked in `mnemon_remember` only |

@@ -13,9 +13,9 @@ const QUERY_CHARS = 300;
 const CANDIDATES = 10;
 const INJECTED_ROWS = 3;
 const MIN_SCORE = 0.6;
-const TIMEOUT_MS = 3_000;
+const TIMEOUT_MS = 5_000;
 // A cold store first loads its embedding model and pages in every stored vector: about 3s on a
-// 6k-memory store, right at TIMEOUT_MS. The session's first recall, and the first after Ollama's
+// 6k-memory store, too close to TIMEOUT_MS. The session's first recall, and the first after Ollama's
 // default five-minute keep_alive lapses, therefore gets a cold budget instead.
 const COLD_TIMEOUT_MS = 10_000;
 const IDLE_MS = 5 * 60_000;
