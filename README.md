@@ -71,7 +71,7 @@ Before the agent starts a turn, the extension may run a quick read-only recall a
 - It runs only in interactive sessions. Worker sessions, task children and team members get the tools but no auto-recall, because their prompts are machine-written.
 - It runs only on prompts you typed. Slash commands, `!` commands and short acknowledgements ("ok", "thanks", "continue" and similar, in English and Chinese) are skipped. A prompt needs at least 12 non-space characters, or 4 Han characters, to count.
 - The query is your prompt with code fences and system/reminder blocks stripped, cut to 300 characters. Its two longest sentences are also queried on their own, in parallel, because instructions such as "reply with only the number" dilute a whole-prompt match. Results are merged, keeping each memory's best match.
-- Each query asks mnemon for 10 candidates, and at most 3 memories are injected. It asks mnemon for `--verbose` output and only keeps memories with a score of 0.65 or higher and an embedding similarity of 0.5 or higher. Builds that report no score fall back to mnemon's high confidence rating. Superseded memories are never injected.
+- Each query asks mnemon for 10 candidates, and at most 3 memories are injected. It asks mnemon for `--verbose` output and only keeps memories with a score of 0.65 or higher (see `OMO_MNEMON_MIN_SCORE`) and an embedding similarity of 0.5 or higher. Builds that report no score fall back to mnemon's high confidence rating. Superseded memories are never injected.
 - A memory is injected at most once per session.
 - Each memory is clipped to 320 characters and sent inside a hidden `<mnemon-recall>` message. That message tells the model these are leads that may be stale or wrong, and that current files, instructions and tool output take precedence.
 - It runs with `--readonly` and a 5 s timeout (6 s for the first recall of a session and after 30 minutes idle). A slow or broken store never blocks or fails a turn.
@@ -83,6 +83,7 @@ Before the agent starts a turn, the extension may run a quick read-only recall a
 | --- | --- |
 | `MNEMON_CLI_PATH` | Absolute path to the `mnemon` binary. Skips the search described above. |
 | `OMO_MNEMON_AUTO_RECALL=0` | Turns off auto-recall. The tools and the command still work. |
+| `OMO_MNEMON_MIN_SCORE` | Score floor for auto-recall, a number from 0 to 1 (default 0.65; other values are ignored). The default suits released mnemon, where common words can inflate scores through the entity index. With a mnemon build that includes the entity-index fix ([mnemon-dev/mnemon#160](https://github.com/mnemon-dev/mnemon/pull/160)), scores run lower and 0.55 keeps most useful recalls. |
 | `MNEMON_DATA_DIR`, `MNEMON_STORE` | mnemon's own settings. The extension passes its environment to mnemon unchanged, so these work as mnemon documents them. |
 
 ## Compatibility

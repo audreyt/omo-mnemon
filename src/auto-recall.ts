@@ -27,6 +27,17 @@ const EXTRA_SENTENCES = 2;
 
 export type AutoRecallHandler = ExtensionHandler<BeforeAgentStartEvent, BeforeAgentStartEventResult>;
 
+export type AutoRecallOptions = { readonly minScore?: number };
+
+// MIN_SCORE is tuned for released mnemon, whose entity index lets common words inflate scores.
+// A build that keeps them out (mnemon-dev/mnemon#160) scores lower, so OMO_MNEMON_MIN_SCORE can
+// lower the floor there. Anything but a number from 0 to 1 keeps the default.
+export function minScoreFromEnv(value: string | undefined): number {
+  if (value === undefined || value.trim() === "") return MIN_SCORE;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1 ? parsed : MIN_SCORE;
+}
+
 // Formatting instructions ("Reply with only the number.") dilute a whole-prompt query below
 // mnemon's high-confidence band, so the longest sentences are also recalled on their own.
 export function recallQueries(prompt: string): readonly string[] {
@@ -54,7 +65,8 @@ export function mergeByBestScore(rows: readonly RecallRow[]): readonly RecallRow
   return [...best.values()].sort((a, b) => rank(b) - rank(a));
 }
 
-export function createAutoRecall(cli: MnemonCli): AutoRecallHandler {
+export function createAutoRecall(cli: MnemonCli, options: AutoRecallOptions = {}): AutoRecallHandler {
+  const minScore = options.minScore ?? MIN_SCORE;
   // One handler per extension instance, and the host builds a fresh instance per session.
   const injected = new Set<string>();
   let warned = false;
@@ -82,7 +94,7 @@ export function createAutoRecall(cli: MnemonCli): AutoRecallHandler {
       coldTimedOut = false;
       const rows = selectSilentRows(mergeByBestScore(payloads.flatMap(parseRecallRows)), {
         limit: INJECTED_ROWS,
-        minScore: MIN_SCORE,
+        minScore,
         minSimilarity: MIN_SIMILARITY,
         exclude: injected,
       });
