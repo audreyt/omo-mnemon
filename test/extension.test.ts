@@ -118,7 +118,16 @@ const HIDDEN = { customType: RECALL_MESSAGE_TYPE, display: false };
 const injection = (text: string) => ({ message: { ...HIDDEN, content: expect.stringContaining(text) } });
 
 function row(id: string, confidence: RecallRow["confidence"], score: number): RecallRow {
-  return { id, content: id, category: "fact", importance: 3, confidence, score, superseded: false };
+  return {
+    id,
+    content: id,
+    category: "fact",
+    importance: 3,
+    confidence,
+    score,
+    similarity: undefined,
+    superseded: false,
+  };
 }
 
 // A store that needs latencyMs per recall: it answers when granted that long and times out
@@ -148,6 +157,35 @@ function storeTaking(latencyMs: number): { readonly cli: MnemonCli; readonly bud
 }
 
 const autoRecall = (cli: MnemonCli): RecordedRecall => ({ run: createAutoRecall(cli) });
+
+function verboseHit(id: string, score: number, similarity: number): unknown {
+  return {
+    insight: { id, content: `${FALCON} (${id})`, category: "fact", importance: 4 },
+    score,
+    intent: "GENERAL",
+    via: "keyword",
+    signals: { keyword: 0.5, entity: 0.5, similarity, graph: 0 },
+  };
+}
+
+test("given a verbose payload, when a prompt starts, then only rows passing score and similarity are injected", async () => {
+  // Given one row above both gates and one with a high score but weak similarity.
+  const calls: (readonly string[])[] = [];
+  const cli: MnemonCli = {
+    runText: async () => "",
+    runJson: async (args) => {
+      calls.push(args);
+      return { results: [verboseHit("keep-1", 0.7, 0.6), verboseHit("drop-1", 0.9, 0.3)], meta: {} };
+    },
+    capabilities: async () => ({ edgeTypes: [] }),
+  };
+  // When
+  const result = await autoRecall(cli).run(event(FALCON_PROMPT), fakeUi().ctx);
+  // Then
+  expect(calls[0]).toContain("--verbose");
+  expect(result).toMatchObject(injection("keep-1"));
+  expect(JSON.stringify(result)).not.toContain("drop-1");
+});
 
 test("given a cold store slower than a warm recall, when the first prompt starts, then it injects without a warning", async () => {
   const { ctx, notices } = fakeUi();
@@ -265,8 +303,9 @@ test("given a preview event, when handled, then mnemon is never invoked", async 
 });
 
 test("given a prompt with a formatting instruction, when handled, then the question sentence recalls the fact", async () => {
-  const loaded = await seeded("The Zephyr-7 widget calibration constant is 4471", 4);
-  const prompt = "What is the calibration constant of the Zephyr-7 widget? Reply with only the number.";
+  const loaded = await seeded("The Zephyr-7 widget calibration constant in PostgreSQL is 4471", 4);
+  const prompt =
+    "What is the calibration constant of the Zephyr-7 widget in PostgreSQL? Reply with only the number.";
   expect(await recallFor(loaded, prompt)).toMatchObject(injection("4471"));
 });
 

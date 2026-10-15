@@ -9,12 +9,14 @@ export type RecallRow = {
   readonly importance: number | undefined;
   readonly confidence: Confidence | undefined;
   readonly score: number | undefined;
+  readonly similarity: number | undefined;
   readonly superseded: boolean;
 };
 
 export type SilentOptions = {
   readonly limit: number;
   readonly minScore: number;
+  readonly minSimilarity: number;
   readonly exclude: ReadonlySet<string>;
 };
 
@@ -68,16 +70,21 @@ function readConfidence(value: unknown): Confidence | undefined {
 
 function parseRow(value: unknown): RecallRow | undefined {
   if (!isRecord(value)) return undefined;
-  const id = readString(value["id"]);
-  const content = readString(value["content"]);
+  // --verbose rows wrap the memory in `insight` and carry per-signal scores; plain rows are flat.
+  const insight = value["insight"];
+  const body = isRecord(insight) ? insight : value;
+  const signals = value["signals"];
+  const id = readString(body["id"]);
+  const content = readString(body["content"]);
   if (id === undefined || content === undefined) return undefined;
   return {
     id,
     content,
-    category: readString(value["category"]) ?? "general",
-    importance: finiteNumber(value["importance"]),
+    category: readString(body["category"]) ?? "general",
+    importance: finiteNumber(body["importance"]),
     confidence: readConfidence(value["confidence"]),
     score: finiteNumber(value["score"]),
+    similarity: isRecord(signals) ? finiteNumber(signals["similarity"]) : undefined,
     superseded: value["superseded"] === true,
   };
 }
@@ -97,15 +104,20 @@ export function parseRecallRows(payload: unknown): readonly RecallRow[] {
   return rows;
 }
 
-function isSilentCandidate(row: RecallRow, minScore: number): boolean {
+function isSilentCandidate(row: RecallRow, options: SilentOptions): boolean {
+  if (row.score !== undefined) {
+    return (
+      row.score >= options.minScore &&
+      (row.similarity === undefined || row.similarity >= options.minSimilarity)
+    );
+  }
   switch (row.confidence) {
     case "high":
       return true;
     case "medium":
     case "low":
-      return false;
     case undefined:
-      return row.score !== undefined && row.score >= minScore;
+      return false;
     default: {
       const unexpected: never = row.confidence;
       throw new Error(`unexpected confidence: ${String(unexpected)}`);
@@ -119,7 +131,7 @@ export function selectSilentRows(rows: readonly RecallRow[], options: SilentOpti
   for (const row of rows) {
     if (selected.length >= options.limit) break;
     if (row.superseded || options.exclude.has(row.id)) continue;
-    if (!isSilentCandidate(row, options.minScore)) continue;
+    if (!isSilentCandidate(row, options)) continue;
     selected.push(row);
   }
   return selected;
