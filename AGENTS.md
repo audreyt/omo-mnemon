@@ -25,8 +25,8 @@ omo-mnemon/
 | Task | Location | Notes |
 |------|----------|-------|
 | Add/change a tool | `src/tools.ts` | TypeBox schemas; `promptGuidelines` live only on `mnemon_recall` |
-| Auto-recall thresholds | `src/auto-recall.ts` constants | QUERY_CHARS 300, CANDIDATES 10, INJECTED_ROWS 3, MIN_SCORE 0.6, 5s warm / 6s cold |
-| Which rows get injected | `recall.ts` `selectSilentRows` | confidence `high` only; score>=minScore only when confidence absent |
+| Auto-recall thresholds | `src/auto-recall.ts` constants | QUERY_CHARS 300, CANDIDATES 10, INJECTED_ROWS 3, MIN_SCORE 0.65, MIN_SIMILARITY 0.5, 5s warm / 6s cold |
+| Which rows get injected | `recall.ts` `selectSilentRows` | score>=minScore AND (similarity absent OR >=minSimilarity) from `--verbose`; confidence `high` only when score is absent |
 | Skip rules for prompts | `text.ts` `isSubstantivePrompt`, `ACKNOWLEDGEMENTS` | >=12 non-space chars or >=4 Han chars |
 | Secret refusal | `text.ts` `SECRET_PATTERNS` | checked in `mnemon_remember` only |
 | Process lifetime, errors | `cli.ts` `execute`, `MnemonCliError.kind` | kinds: not_found, no_store, timeout, aborted, exit, output_limit, invalid_json |
@@ -69,7 +69,7 @@ omo-mnemon/
 ## UNIQUE STYLES
 - Comments explain *why* (constraints and incidents), not *what*. Keep that pattern.
 - Timeouts are deadline-based. Retries share the original deadline, so the budget never extends.
-- The cold budget applies to the first recall and after 5 minutes idle (Ollama keep_alive). After a cold timeout, turns fall back to the warm budget until a recall succeeds.
+- The cold budget applies to the first recall and after 30 minutes idle (Ollama keep_alive). After a cold timeout, turns fall back to the warm budget until a recall succeeds.
 
 ## COMMANDS
 ```bash

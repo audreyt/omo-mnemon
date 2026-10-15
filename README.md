@@ -71,10 +71,10 @@ Before the agent starts a turn, the extension may run a quick read-only recall a
 - It runs only in interactive sessions. Worker sessions, task children and team members get the tools but no auto-recall, because their prompts are machine-written.
 - It runs only on prompts you typed. Slash commands, `!` commands and short acknowledgements ("ok", "thanks", "continue" and similar, in English and Chinese) are skipped. A prompt needs at least 12 non-space characters, or 4 Han characters, to count.
 - The query is your prompt with code fences and system/reminder blocks stripped, cut to 300 characters. Its two longest sentences are also queried on their own, in parallel, because instructions such as "reply with only the number" dilute a whole-prompt match. Results are merged, keeping each memory's best match.
-- Each query asks mnemon for 10 candidates, and at most 3 memories are injected. It only keeps memories mnemon rates high confidence. For builds that report a score but no confidence, the cutoff is a score of 0.6 or higher. Superseded memories are never injected.
+- Each query asks mnemon for 10 candidates, and at most 3 memories are injected. It asks mnemon for `--verbose` output and only keeps memories with a score of 0.65 or higher and an embedding similarity of 0.5 or higher. Builds that report no score fall back to mnemon's high confidence rating. Superseded memories are never injected.
 - A memory is injected at most once per session.
 - Each memory is clipped to 320 characters and sent inside a hidden `<mnemon-recall>` message. That message tells the model these are leads that may be stale or wrong, and that current files, instructions and tool output take precedence.
-- It runs with `--readonly` and a 3 s timeout. A slow or broken store never blocks or fails a turn.
+- It runs with `--readonly` and a 5 s timeout (6 s for the first recall of a session and after 30 minutes idle). A slow or broken store never blocks or fails a turn.
 - If no mnemon store exists yet, it's skipped silently. If mnemon is missing or fails, you see one warning for the session, and after that it stays quiet.
 
 ## Configuration
