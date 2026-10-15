@@ -6,6 +6,7 @@ import type { BeforeAgentStartEvent } from "@earendil-works/pi-coding-agent";
 import {
   createAutoRecall,
   mergeByBestScore,
+  minScoreFromEnv,
   RECALL_MESSAGE_TYPE,
   recallQueries,
 } from "../src/auto-recall.ts";
@@ -29,7 +30,12 @@ type Loaded = {
   readonly recalls: { readonly handler: RecordedRecall; readonly previewSafe: boolean | undefined }[];
 };
 
-const CLEARED = ["OMO_MNEMON_AUTO_RECALL", "SENPI_TASK_RPC_CHILD", "SENPI_CLI_ISOLATED_CHILD"];
+const CLEARED = [
+  "OMO_MNEMON_AUTO_RECALL",
+  "OMO_MNEMON_MIN_SCORE",
+  "SENPI_TASK_RPC_CHILD",
+  "SENPI_CLI_ISOLATED_CHILD",
+];
 const MISSING = "/nonexistent/mnemon";
 const FALCON = "Project Falcon migrated order storage from PostgreSQL to SQLite in March";
 // Every tested mnemon build rates "Which database does Project Falcon use for order storage now?"
@@ -185,6 +191,54 @@ test("given a verbose payload, when a prompt starts, then only rows passing scor
   expect(calls[0]).toContain("--verbose");
   expect(result).toMatchObject(injection("keep-1"));
   expect(JSON.stringify(result)).not.toContain("drop-1");
+});
+
+test("given OMO_MNEMON_MIN_SCORE values, when parsed, then only numbers from 0 to 1 replace the default", () => {
+  // Given
+  const cases: readonly (readonly [string | undefined, number])[] = [
+    [undefined, 0.65],
+    ["", 0.65],
+    [" ", 0.65],
+    ["0.55", 0.55],
+    ["0", 0],
+    ["1", 1],
+    ["abc", 0.65],
+    ["1.2", 0.65],
+    ["-0.1", 0.65],
+  ];
+  // When
+  const parsed = cases.map(([value]) => minScoreFromEnv(value));
+  // Then
+  expect(parsed).toEqual(cases.map(([, expected]) => expected));
+});
+
+test("given a row between 0.55 and the default floor, when a prompt starts, then only a lowered floor injects it", async () => {
+  // Given a row scoring 0.6 with strong similarity.
+  const cli: MnemonCli = {
+    runText: async () => "",
+    runJson: async () => ({ results: [verboseHit("mid-1", 0.6, 0.7)], meta: {} }),
+    capabilities: async () => ({ edgeTypes: [] }),
+  };
+  const lowered: RecordedRecall = { run: createAutoRecall(cli, { minScore: 0.55 }) };
+  // When
+  const byDefault = await autoRecall(cli).run(event(FALCON_PROMPT), fakeUi().ctx);
+  const withOverride = await lowered.run(event(FALCON_PROMPT), fakeUi().ctx);
+  // Then
+  expect(byDefault).toBeUndefined();
+  expect(withOverride).toMatchObject(injection("mid-1"));
+});
+
+test("given OMO_MNEMON_MIN_SCORE=0.55, when loaded, then the recall hook uses the lowered floor", async () => {
+  // Given a mnemon stand-in that returns one row scoring 0.6 with strong similarity.
+  const fake = join(store.root, "fake-mnemon");
+  const payload = JSON.stringify({ results: [verboseHit("mid-1", 0.6, 0.7)], meta: {} });
+  writeFileSync(fake, `#!/bin/sh\nprintf '%s\\n' '${payload}'\n`, { mode: 0o755 });
+  process.env["MNEMON_CLI_PATH"] = fake;
+  process.env["OMO_MNEMON_MIN_SCORE"] = "0.55";
+  // When
+  const result = await recallFor(load(), FALCON_PROMPT);
+  // Then
+  expect(result).toMatchObject(injection("mid-1"));
 });
 
 test("given a cold store slower than a warm recall, when the first prompt starts, then it injects without a warning", async () => {

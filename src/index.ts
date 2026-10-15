@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { type AutoRecallHandler, createAutoRecall } from "./auto-recall.ts";
+import { type AutoRecallHandler, createAutoRecall, minScoreFromEnv } from "./auto-recall.ts";
 import { createMnemonCli } from "./cli.ts";
 import { type CommandHost, registerMnemonCommand } from "./command.ts";
 import { registerMnemonTools, type ToolHost } from "./tools.ts";
@@ -27,7 +27,10 @@ export default function omoMnemon(pi: MnemonHost): void {
   const cli = createMnemonCli();
   registerMnemonTools(pi, cli);
   registerMnemonCommand(pi, cli);
-  if (autoRecallEnabled(pi)) pi.on("before_agent_start", createAutoRecall(cli), { previewSafe: true });
+  if (autoRecallEnabled(pi)) {
+    const minScore = minScoreFromEnv(process.env["OMO_MNEMON_MIN_SCORE"]);
+    pi.on("before_agent_start", createAutoRecall(cli, { minScore }), { previewSafe: true });
+  }
 }
 
 export const hostCompatible: (pi: ExtensionAPI) => void = omoMnemon;
