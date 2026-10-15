@@ -1,6 +1,6 @@
 {
   "name": "omo-mnemon",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Mnemon long-term memory for omo and other senpi/pi coding agents: recall, remember and link tools plus quiet high-confidence auto-recall.",
   "type": "module",
   "license": "CC0-1.0",
