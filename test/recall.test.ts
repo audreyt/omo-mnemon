@@ -21,6 +21,7 @@ function row(
     readonly importance?: number;
     readonly confidence?: "high" | "medium" | "low";
     readonly score?: number;
+    readonly similarity?: number;
     readonly superseded?: boolean;
   } = {},
 ): RecallRow {
@@ -31,6 +32,7 @@ function row(
     importance: extra.importance,
     confidence: extra.confidence,
     score: extra.score,
+    similarity: extra.similarity,
     superseded: extra.superseded ?? false,
   };
 }
@@ -62,6 +64,35 @@ describe("parseRecallRows", () => {
         score: 0.91,
       }),
       row("mem-2", "missing extras"),
+    ]);
+  });
+
+  test("given a verbose payload, when parsed, then insight, similarity and superseded are read", () => {
+    // Given verbose rows with an insight wrapper and signals, when parsed, then fields are lifted out.
+    expect(
+      parseRecallRows({
+        results: [
+          {
+            insight: {
+              id: "mem-1",
+              content: "Zebra deploys to staging-west",
+              category: "fact",
+              importance: 4,
+            },
+            score: 0.8,
+            signals: { keyword: 0.1, similarity: 0.7 },
+          },
+          { insight: { id: "mem-2", content: "old" }, score: 0.9, superseded: true },
+        ],
+      }),
+    ).toEqual([
+      row("mem-1", "Zebra deploys to staging-west", {
+        category: "fact",
+        importance: 4,
+        score: 0.8,
+        similarity: 0.7,
+      }),
+      row("mem-2", "old", { score: 0.9, superseded: true }),
     ]);
   });
 
@@ -110,26 +141,29 @@ describe("parseRecallRows", () => {
 
 describe("selectSilentRows", () => {
   const rows = [
-    row("a", "active high", { confidence: "high", score: 0.2 }),
+    row("a", "active high", { confidence: "high", score: 0.8, similarity: 0.7 }),
     row("b", "superseded high", { confidence: "high", superseded: true }),
     row("c", "excluded high", { confidence: "high" }),
     row("d", "medium", { confidence: "medium", score: 0.99 }),
     row("e", "low", { confidence: "low", score: 0.99 }),
-    row("f", "score only", { score: 0.5 }),
-    row("g", "low score", { score: 0.49 }),
+    row("f", "score only", { score: 0.65 }),
+    row("g", "low score", { score: 0.64 }),
     row("h", "no signal"),
-    row("i", "later high", { confidence: "high", score: 0.1 }),
+    row("i", "later high", { confidence: "high" }),
+    row("j", "score but weak similarity", { score: 0.9, similarity: 0.49 }),
+    row("k", "score and similarity", { score: 0.65, similarity: 0.5 }),
+    row("l", "high band but under cutoff", { confidence: "high", score: 0.62 }),
   ];
-  const options = { limit: 10, minScore: 0.5, exclude: new Set(["c"]) };
+  const options = { limit: 10, minScore: 0.65, minSimilarity: 0.5, exclude: new Set(["c"]) };
 
   test("given mixed rows, when selected, then order is preserved and filters apply", () => {
     // Given superseded, excluded, and low-confidence rows, when selected, then only silent hits remain.
-    expect(selectSilentRows(rows, options).map((item) => item.id)).toEqual(["a", "f", "i"]);
+    expect(selectSilentRows(rows, options).map((item) => item.id)).toEqual(["a", "d", "e", "f", "i", "k"]);
   });
 
   test("given a limit, when selected, then the result stops at that count", () => {
     // Given more hits than the limit, when selected, then earlier hits win.
-    expect(selectSilentRows(rows, { ...options, limit: 2 }).map((item) => item.id)).toEqual(["a", "f"]);
+    expect(selectSilentRows(rows, { ...options, limit: 2 }).map((item) => item.id)).toEqual(["a", "d"]);
   });
 
   test("given a non-positive limit, when selected, then nothing is returned", () => {

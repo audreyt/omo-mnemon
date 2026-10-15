@@ -12,7 +12,10 @@ export const RECALL_MESSAGE_TYPE = "mnemon-recall";
 const QUERY_CHARS = 300;
 const CANDIDATES = 10;
 const INJECTED_ROWS = 3;
-const MIN_SCORE = 0.6;
+const MIN_SCORE = 0.65;
+// Rows under 0.5 embedding similarity were mostly unrelated: generic prompts reach them through
+// shared common-word entities, which lifts the blended score without any semantic match.
+const MIN_SIMILARITY = 0.5;
 const TIMEOUT_MS = 5_000;
 // A cold recall reloads the embedding model and pages in the store: about 4s on a 6k-memory store,
 // too close to TIMEOUT_MS. The session's first recall, and the first after mnemon's 30-minute
@@ -69,7 +72,10 @@ export function createAutoRecall(cli: MnemonCli): AutoRecallHandler {
     try {
       const payloads = await Promise.all(
         recallQueries(event.prompt).map((query) =>
-          cli.runJson(["recall", query, "--limit", String(CANDIDATES)], { readonly: true, timeoutMs }),
+          cli.runJson(["recall", query, "--limit", String(CANDIDATES), "--verbose"], {
+            readonly: true,
+            timeoutMs,
+          }),
         ),
       );
       lastSuccess = Date.now();
@@ -77,6 +83,7 @@ export function createAutoRecall(cli: MnemonCli): AutoRecallHandler {
       const rows = selectSilentRows(mergeByBestScore(payloads.flatMap(parseRecallRows)), {
         limit: INJECTED_ROWS,
         minScore: MIN_SCORE,
+        minSimilarity: MIN_SIMILARITY,
         exclude: injected,
       });
       if (rows.length === 0) return undefined;
