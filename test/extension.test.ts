@@ -294,6 +294,17 @@ test("given a remembered fact, when recalled by query, then the results contain 
   expect(details).toMatchObject({ results: expect.arrayContaining([expect.objectContaining({ id })]) });
 });
 
+test("given dash-leading content, when remembered and recalled by a dash-leading query, then it round-trips", async () => {
+  // Given content mnemon's flag parser would read as flags without a "--" terminator.
+  const loaded = load();
+  const content = "--dry-run is the rehearsal flag Project Falcon deploys with";
+  const id = await remember(loaded, content);
+  // When
+  const details = await call(loaded, "mnemon_recall", { query: content });
+  // Then
+  expect(details).toMatchObject({ results: expect.arrayContaining([expect.objectContaining({ id })]) });
+});
+
 test("given secret-looking content, when remembered, then it is refused and nothing is stored", async () => {
   const loaded = load();
   const content = `deploy key: api_key = ${["sk", "test0123456789abcdefghijkl"].join("-")}`;
@@ -409,6 +420,49 @@ test("given a multi-sentence prompt, when split, then the whole prompt leads plu
   expect(queries.slice(1).every(isSubstantivePrompt)).toBe(true);
 });
 
+test("given a prompt ending in a punctuation delimiter, when split, then the delimiter is not a query", () => {
+  // Given a calendar-invite style prompt whose last sentence is Google's edit-lock delimiter.
+  const prompt =
+    "Did Project Falcon migrate order storage from PostgreSQL to SQLite? " +
+    "Please do not edit this section. " +
+    "-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-";
+  // When
+  const queries = recallQueries(prompt);
+  // Then only the whole-prompt query may contain the delimiter.
+  expect(queries.slice(1).every((query) => !query.includes("::~"))).toBe(true);
+});
+
+test("given one failing sentence query, when a prompt starts, then the surviving queries still inject", async () => {
+  // Given a store that rejects the "Also mention" sentence query and answers the rest.
+  const calls: (readonly string[])[] = [];
+  const cli: MnemonCli = {
+    runText: async () => "",
+    runJson: async (args) => {
+      calls.push(args);
+      const query = args[args.length - 1] ?? "";
+      if (query.startsWith("Also mention")) {
+        throw new MnemonCliError("exit", "mnemon recall failed (exit 1): unknown shorthand flag", 1);
+      }
+      return { results: [verboseHit("keep-1", 0.7, 0.6)], meta: {} };
+    },
+    capabilities: async () => ({ edgeTypes: [] }),
+  };
+  const { ctx, notices } = fakeUi();
+  const prompt =
+    "Which database does Project Falcon use now? Check the order storage notes first. " +
+    "Also mention the migration month please. Reply with only the database name.";
+  // When
+  const result = await autoRecall(cli).run(event(prompt), ctx);
+  // Then the hit is injected, nobody is warned, and every query travelled after "--".
+  expect(result).toMatchObject(injection("keep-1"));
+  expect(notices).toEqual([]);
+  for (const args of calls) {
+    expect(args[0]).toBe("recall");
+    expect(args[args.length - 2]).toBe("--");
+    expect(args.indexOf("--verbose")).toBeLessThan(args.indexOf("--"));
+  }
+});
+
 test("given a single-sentence prompt, when split, then exactly one query is returned", () => {
   expect(recallQueries(FALCON_PROMPT)).toEqual([FALCON_PROMPT]);
 });
@@ -431,6 +485,14 @@ test("given one memory, when /mnemon status runs, then it reports the singular c
 test("given a seeded memory, when /mnemon recall runs, then the matching line is shown", async () => {
   const { ctx, notices } = fakeUi();
   await command(await seeded(FALCON)).run("recall Falcon", ctx);
+  expect(notices[0]?.message).toContain("Falcon");
+});
+
+test("given a seeded memory, when /mnemon recall runs with a dash-leading query, then the matching line is shown", async () => {
+  const content = "--dry-run is the rehearsal flag Project Falcon deploys with";
+  const { ctx, notices } = fakeUi();
+  await command(await seeded(content)).run(`recall ${content}`, ctx);
+  expect(notices[0]?.type).toBe("info");
   expect(notices[0]?.message).toContain("Falcon");
 });
 

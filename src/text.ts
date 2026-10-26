@@ -127,6 +127,9 @@ export function focusQuery(text: string, maxChars: number): string {
 export function isSubstantivePrompt(text: string): boolean {
   const focused = cleanText(text);
   if (focused.length === 0 || focused.startsWith("/") || focused.startsWith("!")) return false;
+  // Punctuation-only runs (calendar invite delimiters like "-::~:~::-") pass the length bar
+  // below but carry nothing to search for; a substantive prompt has a letter or a digit.
+  if (!/[\p{L}\p{N}]/u.test(focused)) return false;
   if (isBareAcknowledgement(focused)) return false;
   return countNonSpace(focused) >= 12 || countHan(focused) >= 4;
 }

@@ -38,7 +38,7 @@ export function registerMnemonCommand(pi: CommandHost, cli: MnemonCli): void {
           ctx.ui.notify(USAGE, "info");
           return;
         }
-        const rows = parseRecallRows(await cli.runJson(["recall", query, "--limit", "5"]));
+        const rows = parseRecallRows(await cli.runJson(["recall", "--limit", "5", "--", query]));
         const lines = rows.map((row) => `- [${row.id.slice(0, 8)}] ${clip(row.content, 160)}`);
         ctx.ui.notify(lines.length ? lines.join("\n") : "mnemon: no matching memories", "info");
       } catch (error) {

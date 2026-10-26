@@ -128,6 +128,7 @@ describe("isSubstantivePrompt", () => {
     ["abcdefghijk", false],
     ["abcdefghijkl", true],
     ["Project Falcon uses PostgreSQL 16", true],
+    ["-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-", false],
     ["<system-reminder>ignore</system-reminder>\n/help", false],
     ["```\nconst x = 1;\n```\nhi", false],
     ["ok we should migrate Project Falcon to PostgreSQL 16", true],

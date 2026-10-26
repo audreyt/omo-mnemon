@@ -82,14 +82,23 @@ export function createAutoRecall(cli: MnemonCli, options: AutoRecallOptions = {}
     const cold = lastSuccess === undefined || Date.now() - lastSuccess > IDLE_MS;
     const timeoutMs = cold && !coldTimedOut ? COLD_TIMEOUT_MS : TIMEOUT_MS;
     try {
-      const payloads = await Promise.all(
+      // Flags precede "--" and the query comes last: a query starting with "-" (a calendar
+      // delimiter, a CLI flag the user pasted) is otherwise parsed as mnemon flags and the
+      // recall exits 1. Settled, not all: one bad extra-sentence query must not discard the
+      // whole-prompt recall.
+      const settled = await Promise.allSettled(
         recallQueries(event.prompt).map((query) =>
-          cli.runJson(["recall", query, "--limit", String(CANDIDATES), "--verbose"], {
+          cli.runJson(["recall", "--limit", String(CANDIDATES), "--verbose", "--", query], {
             readonly: true,
             timeoutMs,
           }),
         ),
       );
+      const payloads = settled.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+      if (payloads.length === 0) {
+        const failure = settled.find((result) => result.status === "rejected");
+        throw failure?.status === "rejected" ? failure.reason : new Error("mnemon recall failed");
+      }
       lastSuccess = Date.now();
       coldTimedOut = false;
       const rows = selectSilentRows(mergeByBestScore(payloads.flatMap(parseRecallRows)), {

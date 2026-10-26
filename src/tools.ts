@@ -80,7 +80,11 @@ export function registerMnemonTools(pi: ToolHost, cli: MnemonCli): void {
       const limit = params.limit ?? 8;
       const query = focusQuery(params.query, 500);
       if (!query) throw new MnemonToolError("query is empty");
-      const payload = await cli.runJson(["recall", query, "--limit", String(limit)], withSignal(signal));
+      // "--" before the query: a dash-leading query is data, not mnemon flags.
+      const payload = await cli.runJson(
+        ["recall", "--limit", String(limit), "--", query],
+        withSignal(signal),
+      );
       return jsonResult({ results: toToolRows(parseRecallRows(payload), limit) });
     },
   });
@@ -114,9 +118,11 @@ export function registerMnemonTools(pi: ToolHost, cli: MnemonCli): void {
       if (looksLikeSecret(params.content)) {
         throw new MnemonToolError("refused: content looks like a secret or credential");
       }
-      const args = ["remember", params.content, "--cat", params.category];
+      // Content goes last, after "--": dash-leading content is data, not mnemon flags.
+      const args = ["remember", "--cat", params.category];
       args.push("--imp", String(params.importance ?? 3), "--source", "agent");
       if (params.entities?.length) args.push("--entities", params.entities.join(","));
+      args.push("--", params.content);
       const summary = summarizeRemember(await cli.runJson(args, withSignal(signal)));
       if (!summary) throw new MnemonToolError("mnemon remember returned no memory id");
       return jsonResult(summary);
